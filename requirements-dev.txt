@@ -1,0 +1,5 @@
+autopep8
+mypy
+pylint
+pytest
+pytest-cov

@@ -1,0 +1,7 @@
+__pycache__
+debug.log
+.ropeproject
+.coverage
+cov.xml
+env
+*.egg-info
