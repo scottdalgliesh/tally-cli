@@ -1,14 +1,19 @@
 # pylint:disable=[missing-class-docstring, missing-module-docstring]
 
+from pathlib import Path
+from typing import Optional, Union
+
 from sqlalchemy import (Column, Date, Float, ForeignKey, Integer, String,
                         create_engine, event)
+from sqlalchemy.engine.base import Engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship, sessionmaker
+from sqlalchemy.orm.session import Session
 
 from . import config
 
 
-def get_engine(url=None):
+def get_engine(url: Optional[Union[str, Path]] = None) -> Engine:
     """Wrapper to delay engine instantiation until runtime."""
     if url is None:
         url = config.DB_URL
@@ -17,13 +22,13 @@ def get_engine(url=None):
     return engine
 
 
-def get_session(url=None):
+def get_session(url: Optional[Union[str, Path]] = None) -> Session:
     """Wrapper to delay session instantiation until runtime."""
     if url is None:
         url = config.DB_URL
     engine = get_engine(url)
-    Session = sessionmaker(engine)
-    return Session()
+    session = sessionmaker(engine)
+    return session()
 
 
 def _fk_pragma_on_connect(dbapi_con, con_record):  # pylint: disable=unused-argument
