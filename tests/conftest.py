@@ -85,6 +85,7 @@ def sample_bill():
 def sample_user():
     return User(name='delta')
 
+
 @pytest.fixture()
 def mock_exit(monkeypatch):
     def new_exit():
