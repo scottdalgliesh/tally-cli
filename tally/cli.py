@@ -1,7 +1,9 @@
 import click
 
 from . import categ as _categ
+from .models import get_session
 from . import parse as _parse
+from .review import TransData
 from . import users
 
 
@@ -114,3 +116,30 @@ def parse(filepath: str, no_confirm: bool):
     trans_dict = _parse.parse_statement(filepath)
     msg = _categ.categorize(trans_dict, no_confirm)
     print(msg)
+
+
+@cli.command()
+@click.option('--filter_edges', is_flag=True,
+              help='Filter out first and last month\'s data (which may be incomplete).')
+@click.option('-c', '--category', help='List transactions for specified category.',
+              type=click.Choice(_categ.get_categs()))
+def review(filter_edges: bool, category: str):
+    """Review transaction data for the active user."""
+    # get active user data
+    active_user = users.get_active_user_name(get_session())
+    trans_data = TransData(active_user)
+
+    # filter first and last month's data if applicable
+    if filter_edges:
+        try:
+            trans_data.filter_first_and_last_month()
+        except ValueError as v_err:
+            msg = f'{v_err} Try re-issueing without the "--filter_edges" option.'
+
+    # generate review output
+    if category:
+        trans_data.filter_by_category(category)
+        msg = f'Transaction list for category "{category}:\n{trans_data.data}"'
+    else:
+        msg = f'Monthly spending summary:\n{trans_data.summarize_all()}'
+    print(msg, '\n', sep='')
