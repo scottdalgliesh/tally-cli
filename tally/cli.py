@@ -1,5 +1,7 @@
 import click
 
+from . import categ as _categ
+from . import parse as _parse
 from . import users
 
 
@@ -63,4 +65,52 @@ def user(add: str, update: str, delete: str, set_active: str, confirm: bool):
     print(msg, '\n', sep='')
 
 
-cli.add_command(user)
+@cli.command()
+@click.option('-a', '--add', help='Add a new category.', type=str)
+@click.option('-u', '--update', help='Update an existing category.',
+              nargs=2, type=str)
+@click.option('-d', '--delete', help='Delete a category.',
+              type=click.Choice(_categ.get_categs()))
+@click.option('--confirm', is_flag=True, help='Confirm delete action.')
+def categ(add: str, update: str, delete: str, confirm: bool):
+    """Manage categories. Issue without options to list categories."""
+    # validate only a single option is used
+    active_options = [option for option in [add, update, delete]
+                      if option not in [None, ()]]
+    if len(active_options) > 1:
+        msg = 'Invalid entry. Only a single option can be used at once.'
+
+    # if no options entered, list users
+    elif len(active_options) == 0:
+        categ_names = _categ.get_categs()
+        if len(categ_names) == 0:
+            msg = 'No categories exist yet. See option "-a" to create a new category.'
+        else:
+            title = 'List of Categories:'
+            msg = '\n'.join([title, '-'*len(title), *categ_names])
+
+    # option-directed function calls
+    elif add is not None:
+        msg = _categ.add_categ(add)
+    elif update != ():
+        msg = _categ.update_categ(*update)
+    elif delete is not None:
+        if confirm:
+            msg = _categ.delete_categ(delete)
+        else:
+            msg = (f'Are you sure you want to delete categpru "{delete}"?\n'
+                   'Issue command with "--confirm" to complete operation.')
+    else:
+        msg = 'Internal error. No actions taken.'
+    print(msg, '\n', sep='')
+
+
+@cli.command()
+@click.argument('filepath', type=click.Path(exists=True, dir_okay=False))
+@click.option('--no_confirm', is_flag=True,
+              help='Do not require active user confirmation.')
+def parse(filepath: str, no_confirm: bool):
+    '''Parse & categorize a pdf statement.'''
+    trans_dict = _parse.parse_statement(filepath)
+    msg = _categ.categorize(trans_dict, no_confirm)
+    print(msg)
