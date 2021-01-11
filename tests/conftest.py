@@ -6,7 +6,13 @@ import sys
 import pytest
 
 from tally import config
+from tally import categ
 from tally.models import ActiveUser, Base, Bill, Category, User, get_engine, get_session
+
+def new_bill(date, descr, value, user_name, category_name):
+    """Wrapper function for compact bill definitions below."""
+    return Bill(date=date, descr=descr, value=value, user_name=user_name,
+                category_name=category_name)
 
 
 @pytest.fixture
@@ -51,11 +57,6 @@ def sample_db(test_db_path, engine, session):
         Category(name='misc'),
     ]
 
-    def new_bill(date, descr, value, user_name, category_name):
-        """Wrapper function for compact bill definitions below."""
-        return Bill(date=date, descr=descr, value=value, user_name=user_name,
-                    category_name=category_name)
-
     bills = [
         new_bill(date(2020, 1, 26), 'zehrs', 100, 'scott', 'groceries'),
         new_bill(date(2020, 1, 27), 'walmart', 200, 'scott', 'misc'),
@@ -74,6 +75,14 @@ def sample_db(test_db_path, engine, session):
     session.commit()
     return session
 
+@pytest.fixture
+def empty_db(test_db_path, engine, session):
+    user = User(name='scott')
+    active_user = ActiveUser(name='scott')
+    categories = [Category(name='category1'), Category(name='category2')]
+    session.add_all([user, active_user, *categories])
+    session.commit()
+    return session
 
 @pytest.fixture()
 def sample_bill():
@@ -91,3 +100,13 @@ def mock_exit(monkeypatch):
     def new_exit():
         pass
     monkeypatch.setattr(sys, 'exit', new_exit)
+
+@pytest.fixture
+def mock_pick(monkeypatch):
+    def _mock_pick(categories, message):
+        '''Select category1 if 1 appended to description, else category2'''
+        if message.rstrip("\"")[-1] == '1':
+            return ('category1', 0)
+        else:
+            return ('category2', 0)
+    monkeypatch.setattr(categ, 'pick', _mock_pick)
