@@ -1,11 +1,14 @@
 #pylint:disable=[missing-function-docstring, unused-argument]
+from datetime import date
+from typing import Dict
 
-from click.testing import CliRunner
 import pytest
+from click.testing import CliRunner
 
-from tally import users
+from tally import categ, parse, users
 from tally.cli import cli
-from tally.models import User
+from tally.models import Bill, User, get_session
+from .test_parse import sample1
 
 MSG_USER_NO_OPTIONS = (
     '''
@@ -74,3 +77,77 @@ def test_user_set_active(sample_db, cli_input, delete_users, partial_message):
     runner.invoke(cli, cli_input)
     result = runner.invoke(cli, ['user'])
     assert partial_message in result.output
+
+MSG_CATEG_NO_OPTIONS = (
+    '''
+List of Categories:
+-------------------
+groceries
+gas
+misc
+
+'''.lstrip('\n')
+)
+
+test_input = [
+    pytest.param(['categ'], ['groceries', 'gas', 'misc'],
+                 MSG_CATEG_NO_OPTIONS, id='no args'),
+    pytest.param('categ -a new -u groceries groceries2'.split(), ['groceries', 'gas', 'misc'],
+                 None, id='too many options'),
+    pytest.param('categ -a new'.split(), ['groceries', 'gas', 'misc', 'new'],
+                 None, id='add valid'),
+    pytest.param('categ -a groceries'.split(), ['groceries', 'gas', 'misc'],
+                 None, id='add duplicate'),
+    pytest.param('categ -u groceries groc2'.split(), ['groc2', 'gas', 'misc'],
+                 None, id='update valid'),
+    pytest.param('categ -u groceries'.split(), ['groceries', 'gas', 'misc'],
+                 None, id='update missing second arg'),
+    pytest.param('categ -u groceries gas'.split(), ['groceries', 'gas', 'misc'],
+                 None, id='update duplicate'),
+    pytest.param('categ -u new1 new2'.split(), ['groceries', 'gas', 'misc'],
+                 None, id='update does not exist'),
+    pytest.param('categ -d groceries --confirm'.split(), ['gas', 'misc'],
+                 None, id='delete valid'),
+    pytest.param('categ -d groceries'.split(), ['groceries', 'gas', 'misc'],
+                 None, id='delete no confirm'),
+    pytest.param('categ -d new --confirm'.split(), ['groceries', 'gas', 'misc'],
+                 None, id='delete non-existing'),
+]
+
+@pytest.mark.parametrize('cli_input,categ_list,output_msg', test_input)
+def test_categ_operations(sample_db, cli_input, categ_list, output_msg):
+    runner = CliRunner()
+    result = runner.invoke(cli, cli_input)
+    if output_msg:
+        assert result.output == output_msg
+    test_categs = categ.get_categs()
+    assert test_categs == categ_list
+
+
+
+
+def test_parse(empty_db, monkeypatch, mock_pick):
+    # mock the tika parser
+    statement_text = sample1['statement_text']
+    class MockTika:
+        '''Mock Tika.parser response'''
+        @staticmethod
+        def from_file(url: str) -> Dict[str, str]:
+            return {'content': statement_text}
+    monkeypatch.setattr(parse, 'parser', MockTika)
+
+    # run parse on sample input with user categorization (pick) mocked
+    runner = CliRunner()
+    result = runner.invoke(cli, f'parse --no_confirm {sample1["url"]}'.split())
+    assert result.output == '7 transactions added successfully.\n'
+
+    # verify database integrity after testing
+    session = get_session()
+    test_bills = session.query(Bill).all()
+    assert len(test_bills) == 7
+    assert test_bills[0].date == date(2019, 3, 22)
+    assert test_bills[0].value == 44.71
+    assert test_bills[0].descr == 'TIM HORTONS TORONTO ON'
+    assert test_bills[0].user_name == 'scott'
+    assert test_bills[0].category_name == 'category2'
+    assert test_bills[6].value == 43.79
