@@ -37,6 +37,7 @@ class TransData():
         engine = get_engine()
         user_data = pd.read_sql('bills', engine, index_col='date', parse_dates='date',
                                 columns=['date', 'descr', 'value', 'user_name', 'category_name'])
+        user_data = user_data.sort_index()
         user_filt = user_data['user_name'] == user_name
         user_data = user_data[user_filt]
         user_data.drop(columns='user_name', inplace=True)
@@ -61,7 +62,7 @@ class TransData():
         filt = self.data['Category'] == category
         self.data = self.data[filt]
 
-    def summarize_all(self):
+    def summarize_all(self) -> pd.DataFrame:
         '''Return a pivot table summary by month and category.'''
         # create pivot table, sorted by year then month
         data = deepcopy(self.data)
@@ -74,6 +75,7 @@ class TransData():
                                aggfunc='sum', fill_value=0, index=['Year', 'Month'])
         pivot.sort_index(level=1, key=lambda rows: sorted(
             rows, key=lambda row: months[row]), inplace=True)
+        pivot.sort_index(level=0, inplace=True, sort_remaining=False)
 
         # add category averages and month totals
         pivot.loc[('Average', ''), :] = pivot.mean(axis=0)
