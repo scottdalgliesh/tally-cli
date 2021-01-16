@@ -8,6 +8,7 @@ from click.testing import CliRunner
 from tally import categ, parse, users
 from tally.cli import cli
 from tally.models import Bill, User, get_session
+from tally.review import TransData
 from .test_parse import sample1
 
 MSG_USER_NO_OPTIONS = (
@@ -78,6 +79,7 @@ def test_user_set_active(sample_db, cli_input, delete_users, partial_message):
     result = runner.invoke(cli, ['user'])
     assert partial_message in result.output
 
+
 MSG_CATEG_NO_OPTIONS = (
     '''
 List of Categories:
@@ -114,6 +116,7 @@ test_input = [
                  None, id='delete non-existing'),
 ]
 
+
 @pytest.mark.parametrize('cli_input,categ_list,output_msg', test_input)
 def test_categ_operations(sample_db, cli_input, categ_list, output_msg):
     runner = CliRunner()
@@ -124,11 +127,10 @@ def test_categ_operations(sample_db, cli_input, categ_list, output_msg):
     assert test_categs == categ_list
 
 
-
-
 def test_parse(empty_db, monkeypatch, mock_pick):
     # mock the tika parser
     statement_text = sample1['statement_text']
+
     class MockTika:
         '''Mock Tika.parser response'''
         @staticmethod
@@ -151,3 +153,30 @@ def test_parse(empty_db, monkeypatch, mock_pick):
     assert test_bills[0].user_name == 'scott'
     assert test_bills[0].category_name == 'category2'
     assert test_bills[6].value == 43.79
+
+
+def test_review(review_db):
+    cli_input = 'review'
+    runner = CliRunner()
+    result = runner.invoke(cli, cli_input)
+    sample_df = TransData('scott').summarize_all()
+    assert str(sample_df) in result.output
+
+
+def test_review_filter_edges(review_db):
+    cli_input = 'review --filter_edges'
+    runner = CliRunner()
+    result = runner.invoke(cli, cli_input)
+    sample_df = TransData('scott')
+    sample_df.filter_first_and_last_month()
+    sample_df = sample_df.summarize_all()
+    assert str(sample_df) in result.output
+
+
+def test_review_filter_by_category(review_db):
+    cli_input = 'review -c groceries'
+    runner = CliRunner()
+    result = runner.invoke(cli, cli_input)
+    sample_df = TransData('scott')
+    sample_df.filter_by_category('groceries')
+    assert str(sample_df.data) in result.output

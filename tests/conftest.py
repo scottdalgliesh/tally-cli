@@ -9,6 +9,7 @@ from tally import config
 from tally import categ
 from tally.models import ActiveUser, Base, Bill, Category, User, get_engine, get_session
 
+
 def new_bill(date, descr, value, user_name, category_name):
     """Wrapper function for compact bill definitions below."""
     return Bill(date=date, descr=descr, value=value, user_name=user_name,
@@ -75,6 +76,7 @@ def sample_db(test_db_path, engine, session):
     session.commit()
     return session
 
+
 @pytest.fixture
 def empty_db(test_db_path, engine, session):
     user = User(name='scott')
@@ -83,6 +85,22 @@ def empty_db(test_db_path, engine, session):
     session.add_all([user, active_user, *categories])
     session.commit()
     return session
+
+
+@pytest.fixture
+def review_db(sample_db):
+    '''Add some additional data to the base sample_db'''
+    new_bills = [
+        new_bill(date(2019, 12, 31), 'Previous month', 1, 'scott', 'misc'),
+        new_bill(date(2020, 1, 1), 'Start of current month',
+                 1, 'scott', 'misc'),
+        new_bill(date(2020, 1, 31), 'End of current month', 1, 'scott', 'misc'),
+        new_bill(date(2020, 2, 1), 'Next month', 1, 'scott', 'misc'),
+    ]
+    sample_db.add_all(new_bills)
+    sample_db.commit()
+    return sample_db
+
 
 @pytest.fixture()
 def sample_bill():
@@ -100,6 +118,7 @@ def mock_exit(monkeypatch):
     def new_exit():
         pass
     monkeypatch.setattr(sys, 'exit', new_exit)
+
 
 @pytest.fixture
 def mock_pick(monkeypatch):
