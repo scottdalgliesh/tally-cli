@@ -58,6 +58,11 @@ def active_user_exists(session: Session) -> bool:
     return len(session.query(ActiveUser).all()) != 0
 
 
+def get_active_user(session: Session) -> User:
+    """Get the active user."""
+    return session.query(ActiveUser).first().user
+
+
 def get_active_user_name(session: Session) -> str:
     """Get name of the active user."""
     return session.query(ActiveUser).first().name

@@ -2,7 +2,7 @@ from copy import deepcopy
 from datetime import date
 import pandas as pd
 
-from .models import get_engine
+from .models import get_engine, get_session, Category
 
 
 # set pandas global display options
@@ -34,15 +34,26 @@ class TransData():
 
     def __init__(self, user_name: str):
         '''Retrieve all data for the specified user and store as a DataFrame, indexed by date.'''
+        # get bill data for specified user
         engine = get_engine()
         user_data = pd.read_sql('bills', engine, index_col='date', parse_dates='date',
-                                columns=['date', 'descr', 'value', 'user_name', 'category_name'])
+                                columns=['date', 'descr', 'value', 'user_name', 'category_id'])
         user_data = user_data.sort_index()
         user_filt = user_data['user_name'] == user_name
         user_data = user_data[user_filt]
-        user_data.drop(columns='user_name', inplace=True)
-        user_data.rename(columns={'descr': 'Description', 'value': 'Value',
-                                  'category_name': 'Category'}, inplace=True)
+
+        # convert category_id to category name
+        session = get_session()
+        user_categs = session.query(Category).\
+            filter_by(user_name=user_name).all()
+        categ_map = {categ.id: categ.name for categ in user_categs}
+        user_data['Category'] = user_data['category_id'].\
+            apply(lambda x: categ_map[x])
+
+        # drop unnecessary columns and rename columns
+        user_data.drop(columns=['user_name', 'category_id'], inplace=True)
+        user_data.rename(columns={'descr': 'Description', 'value': 'Value'},
+                         inplace=True)
         user_data.index.rename('Date', inplace=True)
         self.data = user_data
 

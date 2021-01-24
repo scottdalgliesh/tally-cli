@@ -1,13 +1,10 @@
-#pylint:disable=[missing-function-docstring, unused-argument, redefined-outer-name]
+#pylint:disable=[missing-function-docstring, unused-argument]
 
-from datetime import date
 from math import isclose
 
 import pandas as pd
-import pytest
 
 from tally.review import TransData
-from .conftest import new_bill
 
 
 def test_init(sample_db):

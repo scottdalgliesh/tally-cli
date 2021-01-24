@@ -4,7 +4,7 @@ from pathlib import Path
 from typing import Optional, Union
 
 from sqlalchemy import (Column, Date, Float, ForeignKey, Integer, String,
-                        create_engine, event)
+                        UniqueConstraint, create_engine, event)
 from sqlalchemy.engine.base import Engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship, sessionmaker
@@ -42,10 +42,30 @@ Base = declarative_base()
 class User(Base):
     __tablename__ = 'users'
     name = Column(String, primary_key=True)
-    bills = relationship('Bill', back_populates='user')
+    categories = relationship('Category', back_populates='user',
+                              cascade='all, delete-orphan')
+    bills = relationship('Bill', back_populates='user',
+                         cascade='all, delete-orphan')
 
     def __repr__(self):
         return f'<User(user_name="{self.name}")>'
+
+
+class Category(Base):
+    __tablename__ = 'categories'
+    id = Column(Integer, primary_key=True)
+    name = Column(String, nullable=False)
+    user_name = Column(
+        String,
+        ForeignKey('users.name', onupdate='CASCADE', ondelete='CASCADE'))
+    user = relationship('User', back_populates='categories')
+    bills = relationship('Bill', back_populates='category',
+                         cascade='all, delete-orphan')
+    __table_args__ = (UniqueConstraint(
+        'user_name', 'name', name='user-category-uc'),)
+
+    def __repr__(self):
+        return f'<Category(name="{self.name}", user_name="{self.user_name}")>'
 
 
 class Bill(Base):
@@ -56,30 +76,18 @@ class Bill(Base):
     value = Column(Float, nullable=False)
     user_name = Column(
         String,
-        ForeignKey('users.name', onupdate='CASCADE', ondelete='SET NULL'),
-    )
-    category_name = Column(
-        String,
-        ForeignKey('categories.name', onupdate='CASCADE', ondelete='SET NULL'),
-    )
+        ForeignKey('users.name', onupdate='CASCADE', ondelete='CASCADE'))
+    category_id = Column(
+        Integer,
+        ForeignKey('categories.id', onupdate='CASCADE', ondelete='CASCADE'))
     user = relationship('User', back_populates='bills')
     category = relationship('Category', back_populates='bills')
 
     def __repr__(self):
         return (
-            f'<Bill(id="{self.date}", descr="{self.descr}", '
+            f'<Bill(date="{self.date}", descr="{self.descr}", '
             f'value="{self.value}", user_name="{self.user_name}", '
-            f'category_name="{self.category_name}")>'
-        )
-
-
-class Category(Base):
-    __tablename__ = 'categories'
-    name = Column(String, primary_key=True)
-    bills = relationship('Bill', back_populates='category')
-
-    def __repr__(self):
-        return f'<Category(name="{self.name}")>'
+            f'category_id={self.category_id})>')
 
 
 class ActiveUser(Base):

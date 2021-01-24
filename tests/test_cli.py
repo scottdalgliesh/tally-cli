@@ -84,8 +84,8 @@ MSG_CATEG_NO_OPTIONS = (
     '''
 List of Categories:
 -------------------
-groceries
 gas
+groceries
 misc
 
 '''.lstrip('\n')
@@ -124,7 +124,7 @@ def test_categ_operations(sample_db, cli_input, categ_list, output_msg):
     if output_msg:
         assert result.output == output_msg
     test_categs = categ.get_categs()
-    assert test_categs == categ_list
+    assert sorted(test_categs) == sorted(categ_list)
 
 
 def test_parse(empty_db, monkeypatch, mock_pick):
@@ -151,7 +151,7 @@ def test_parse(empty_db, monkeypatch, mock_pick):
     assert test_bills[0].value == 44.71
     assert test_bills[0].descr == 'TIM HORTONS TORONTO ON'
     assert test_bills[0].user_name == 'scott'
-    assert test_bills[0].category_name == 'category2'
+    assert test_bills[0].category.name == 'category2'
     assert test_bills[6].value == 43.79
 
 

@@ -7,13 +7,8 @@ import pytest
 
 from tally import config
 from tally import categ
-from tally.models import ActiveUser, Base, Bill, Category, User, get_engine, get_session
-
-
-def new_bill(date, descr, value, user_name, category_name):
-    """Wrapper function for compact bill definitions below."""
-    return Bill(date=date, descr=descr, value=value, user_name=user_name,
-                category_name=category_name)
+from tally.models import ActiveUser, Base, Category, User, get_engine, get_session
+from tally.utils import new_bill
 
 
 @pytest.fixture
@@ -49,14 +44,18 @@ def sample_db(test_db_path, engine, session):
         User(name='scott'),
         User(name='sarah')
     ]
+    session.add_all(users)
+    session.commit()
 
     active_user = ActiveUser(name='scott')
+    session.add(active_user)
+    session.commit()
 
-    categories = [
-        Category(name='groceries'),
-        Category(name='gas'),
-        Category(name='misc'),
-    ]
+    categ_names = ['groceries', 'gas', 'misc']
+    for user in users:
+        for categ_name in categ_names:
+            user.categories.append(Category(name=categ_name))
+    session.commit()
 
     bills = [
         new_bill(date(2020, 1, 26), 'zehrs', 100, 'scott', 'groceries'),
@@ -68,10 +67,6 @@ def sample_db(test_db_path, engine, session):
         new_bill(date(2020, 1, 28), 'shell', 700, 'sarah', 'gas'),
         new_bill(date(2020, 1, 29), 'no frills', 800, 'sarah', 'groceries'),
     ]
-
-    session.add_all(users)
-    session.add(active_user)
-    session.add_all(categories)
     session.add_all(bills)
     session.commit()
     return session
@@ -80,9 +75,11 @@ def sample_db(test_db_path, engine, session):
 @pytest.fixture
 def empty_db(test_db_path, engine, session):
     user = User(name='scott')
+    session.add(user)
     active_user = ActiveUser(name='scott')
-    categories = [Category(name='category1'), Category(name='category2')]
-    session.add_all([user, active_user, *categories])
+    session.add(active_user)
+    user.categories.extend(
+        [Category(name='category1'), Category(name='category2')])
     session.commit()
     return session
 
@@ -104,8 +101,8 @@ def review_db(sample_db):
 
 @pytest.fixture()
 def sample_bill():
-    return Bill(date=date(2020, 1, 26), descr='sample', value=100,
-                user_name='scott', category_name='groceries')
+    return new_bill(date(2020, 1, 26), 'sample', 100,
+                    'scott', 'groceries')
 
 
 @pytest.fixture()

@@ -31,14 +31,14 @@ def test_user_operation(sample_db, mock_exit, func, categ1, categ2, categ_list):
         func(categ1, categ2)
     else:
         func(categ1)
-    categs = sample_db.query(Category).all()
+    categs = sample_db.query(Category).filter_by(user_name='scott').all()
     categ_names = [categ.name for categ in categs]
-    assert categ_names == categ_list
+    assert sorted(categ_names) == sorted(categ_list)
 
 
 def test_get_categs(sample_db):
     test_categs = get_categs()
-    assert test_categs == ['groceries', 'gas', 'misc']
+    assert sorted(test_categs) == sorted(['groceries', 'gas', 'misc'])
 
 
 def test_categorize(empty_db, mock_pick):
@@ -58,5 +58,5 @@ def test_categorize(empty_db, mock_pick):
     assert test_bills[0].value == 100
     assert test_bills[0].descr == 'Sample_description_1'
     assert test_bills[0].user_name == 'scott'
-    assert test_bills[0].category_name == 'category1'
+    assert test_bills[0].category.name == 'category1'
     assert test_bills[3].value == 400

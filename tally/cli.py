@@ -18,10 +18,10 @@ def cli():
 @click.option('-u', '--update', help='Update an existing user.',
               nargs=2, type=str)
 @click.option('-d', '--delete', help='Delete a user.',
-              type=click.Choice(users.get_users()))
+              type=click.STRING)
 @click.option('-s', '--set_active', help='Set the active user.',
-              type=click.Choice(users.get_users()))
-@click.option('--confirm', is_flag=True, help='Confirm delete action.')
+              type=click.STRING)
+@ click.option('--confirm', is_flag=True, help='Confirm delete action.')
 def user(add: str, update: str, delete: str, set_active: str, confirm: bool):
     """Manage users & set active user. Issue without options to list users."""
     # validate only a single option is used
@@ -72,15 +72,19 @@ def user(add: str, update: str, delete: str, set_active: str, confirm: bool):
 @click.option('-u', '--update', help='Update an existing category.',
               nargs=2, type=str)
 @click.option('-d', '--delete', help='Delete a category.',
-              type=click.Choice(_categ.get_categs()))
+              type=click.STRING)
 @click.option('--confirm', is_flag=True, help='Confirm delete action.')
 def categ(add: str, update: str, delete: str, confirm: bool):
-    """Manage categories. Issue without options to list categories."""
+    """Manage categories. Issue without options to list active user categories."""
     # validate only a single option is used
     active_options = [option for option in [add, update, delete]
                       if option not in [None, ()]]
     if len(active_options) > 1:
         msg = 'Invalid entry. Only a single option can be used at once.'
+
+    # validate that active user is set
+    elif not users.active_user_exists(get_session()):
+        msg = 'Active user is not set. See command "user -s"'
 
     # if no options entered, list users
     elif len(active_options) == 0:
@@ -122,11 +126,17 @@ def parse(filepath: str, no_confirm: bool):
 @click.option('--filter_edges', is_flag=True,
               help='Filter out first and last month\'s data (which may be incomplete).')
 @click.option('-c', '--category', help='List transactions for specified category.',
-              type=click.Choice(_categ.get_categs()))
+              type=click.STRING)
 def review(filter_edges: bool, category: str):
     """Review transaction data for the active user."""
+    # validate active user exists
+    session = get_session()
+    if not users.active_user_exists(session):
+        print('Active user is not set. See command "user -s"', '\n')
+        return
+
     # get active user data
-    active_user = users.get_active_user_name(get_session())
+    active_user = users.get_active_user_name(session)
     trans_data = TransData(active_user)
 
     # filter first and last month's data if applicable

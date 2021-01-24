@@ -2,10 +2,10 @@ from typing import List
 
 from pick import pick
 
-from .models import Bill, Category, get_session
+from .models import Category, get_session
 from .parse import TransDict
-from .users import get_active_user_name
-from .utils import safe_commit
+from .users import get_active_user, get_active_user_name, active_user_exists
+from .utils import safe_commit, new_bill
 
 
 def categorize(trans_dict: TransDict, no_confirm: bool) -> str:
@@ -32,15 +32,15 @@ def categorize(trans_dict: TransDict, no_confirm: bool) -> str:
             f"Description: {trans_dict['Description'][0]}"
         )
         categ, _ = pick(categ_list, trans)
-        new_bill = Bill(
+        bill = new_bill(
             date=trans_dict['Date'].pop(0),
             descr=trans_dict['Description'].pop(0),
             value=trans_dict['Value'].pop(0),
-            user_name = active_user,
+            user_name=active_user,
             category_name=categ
         )
-        session.add(new_bill)
-        new_bill_count +=1
+        session.add(bill)
+        new_bill_count += 1
     safe_commit(session)
     return f'{new_bill_count} transactions added successfully.'
 
@@ -48,17 +48,17 @@ def categorize(trans_dict: TransDict, no_confirm: bool) -> str:
 def get_categs() -> List[str]:
     '''Get all categories.'''
     session = get_session()
-    categs = session.query(Category).all()
-    if len(categs) == 0:
+    if not active_user_exists(session):
         return []
-    else:
-        return [categ.name for categ in categs]
+    categs = get_active_user(session).categories
+    return [categ.name for categ in categs]  # type: ignore
 
 
 def add_categ(categ_name: str) -> str:
     '''Add a new category.'''
     session = get_session()
-    new_category = Category(name=categ_name)
+    active_user_name = get_active_user_name(session)
+    new_category = Category(name=categ_name, user_name=active_user_name)
     session.add(new_category)
     safe_commit(session)
     return f'Category {categ_name} added successfully.'
@@ -68,7 +68,9 @@ def update_categ(old_categ_name: str, new_categ_name: str) -> str:
     '''Modify an existing category's name.'''
     session = get_session()
     session.autoflush = False
-    categ = session.query(Category).filter_by(name=old_categ_name).first()
+    active_user_name = get_active_user_name(session)
+    categ = session.query(Category).filter_by(name=old_categ_name,
+                                              user_name=active_user_name).first()
     if categ is None:
         msg = f'Category "{old_categ_name}" does not exist. Please verify spelling.'
     else:
@@ -82,7 +84,9 @@ def delete_categ(categ_name: str) -> str:
     """Delete an existing category."""
     session = get_session()
     session.autoflush = False
-    categ = session.query(Category).filter_by(name=categ_name).first()
+    active_user_name = get_active_user_name(session)
+    categ = session.query(Category).filter_by(name=categ_name,
+                                              user_name=active_user_name).first()
     if categ is None:
         msg = f'Category "{categ_name}" does not exist. Please verify spelling.'
     else:

@@ -4,9 +4,11 @@ from datetime import date
 
 import pandas as pd
 import pytest
+from sqlalchemy.orm.exc import NoResultFound
 from sqlalchemy.exc import IntegrityError
 
 from tally.models import ActiveUser, Bill, Category, User
+from tally.utils import new_bill
 
 
 def test_basic_query(sample_db):
@@ -37,10 +39,11 @@ def test_dup_user(sample_db, sample_user):
         sample_db.commit()
 
 
-def test_bill_with_bad_category(sample_db, sample_bill):
-    sample_bill.category_name = 'unknown_category'
-    with pytest.raises(IntegrityError):
-        sample_db.add(sample_bill)
+def test_bill_with_bad_category(sample_db):
+    with pytest.raises(NoResultFound):
+        bill = new_bill(date(2020, 1, 26), 'sample',
+                        100, 'scott', 'unknown_category')
+        sample_db.add(bill)
         sample_db.commit()
 
 
@@ -55,14 +58,15 @@ def test_user_update(sample_db):
     new_user_bills = new_user.bills
     assert old_user_bills == new_user_bills
     # verify old user name no longer exists in db
-    assert len(sample_db.query(User).filter_by(name='scott').all()) == 0
-    assert len(sample_db.query(Bill).filter_by(
-        category_name='scott').all()) == 0
+    assert sample_db.query(User).filter_by(name='scott').count() == 0
+    assert sample_db.query(Bill).filter_by(
+        user_name='scott').count() == 0
 
 
 def test_category_update(sample_db):
     # get bills associated with category, then update category name
-    category = sample_db.query(Category).filter_by(name='gas').first()
+    category = sample_db.query(Category).filter_by(name='gas',
+                                                   user_name='scott').first()
     old_category_bills = category.bills
     category.name = 'vehicle'
     sample_db.commit()
@@ -71,8 +75,11 @@ def test_category_update(sample_db):
     new_category_bills = new_category.bills
     assert old_category_bills == new_category_bills
     # verify old category name no longer exists in db
-    assert len(sample_db.query(Category).filter_by(name='gas').all()) == 0
-    assert len(sample_db.query(Bill).filter_by(category_name='gas').all()) == 0
+    assert sample_db.query(Category).filter_by(name='gas',
+                                               user_name='scott').count() == 0
+    assert sample_db.query(Bill).join(Category).\
+        filter(Category.name == 'gas').\
+        filter(Bill.user_name == 'scott').count() == 0
 
 
 def test_active_user_update(sample_db):
