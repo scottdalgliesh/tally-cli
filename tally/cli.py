@@ -123,7 +123,7 @@ def parse(filepath: str, no_confirm: bool):
 
 
 @cli.command()
-@click.option('--filter_edges', is_flag=True,
+@click.option('-f', '--filter_edges', is_flag=True,
               help='Filter out first and last month\'s data (which may be incomplete).')
 @click.option('-c', '--category', help='List transactions for specified category.',
               type=click.STRING)
@@ -144,12 +144,14 @@ def review(filter_edges: bool, category: str):
         try:
             trans_data.filter_first_and_last_month()
         except ValueError as v_err:
-            msg = f'{v_err} Try re-issueing without the "--filter_edges" option.'
+            print(f'{v_err} Try re-issueing without the "--filter_edges" option.\n')
+            return
+
 
     # generate review output
     if category:
         trans_data.filter_by_category(category)
-        msg = f'Transaction list for category "{category}:\n{trans_data.data}"'
+        msg = f'Transaction list for category "{category}":\n{trans_data.data}'
     else:
         msg = f'Monthly spending summary:\n{trans_data.summarize_all()}'
     print(msg, '\n', sep='')
