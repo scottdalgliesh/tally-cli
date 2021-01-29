@@ -1,6 +1,0 @@
-autopep8
-mypy
-sqlalchemy-stubs
-pylint
-pytest
-pytest-cov

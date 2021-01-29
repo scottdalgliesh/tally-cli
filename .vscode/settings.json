@@ -1,5 +1,5 @@
 {
-    "python.pythonPath": "env\\Scripts\\python.exe",
+    "python.pythonPath": "c:\\Users\\sdalg\\python\\tally\\.venv\\Scripts\\python.exe",
     "python.testing.pytestEnabled": true,
     "python.linting.mypyEnabled": true,
     "python.analysis.typeCheckingMode": "off"
