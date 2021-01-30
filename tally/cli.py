@@ -1,10 +1,9 @@
 import click
 
 from . import categ as _categ
-from .models import get_session
 from . import parse as _parse
-from .review import TransData
 from . import users
+from .review import TransData
 
 
 @click.group()
@@ -40,9 +39,8 @@ def user(add: str, update: str, delete: str, set_active: str, confirm: bool):
             msg = '\n'.join([title, '-'*len(title), *user_names])
 
         # add '*' to active user, or note if no active user exists
-        session = users.get_session()
-        if users.active_user_exists(session):
-            active_user = users.get_active_user_name(session)
+        if users.active_user_exists():
+            active_user = users.get_active_user_name()
             index = msg.find(active_user)
             msg = msg[:index] + '*' + msg[index:]
         else:
@@ -83,7 +81,7 @@ def categ(add: str, update: str, delete: str, confirm: bool):
         msg = 'Invalid entry. Only a single option can be used at once.'
 
     # validate that active user is set
-    elif not users.active_user_exists(get_session()):
+    elif not users.active_user_exists():
         msg = 'Active user is not set. See command "user -s"'
 
     # if no options entered, list users
@@ -130,13 +128,12 @@ def parse(filepath: str, no_confirm: bool):
 def review(filter_edges: bool, category: str):
     """Review transaction data for the active user."""
     # validate active user exists
-    session = get_session()
-    if not users.active_user_exists(session):
+    if not users.active_user_exists():
         print('Active user is not set. See command "user -s"', '\n')
         return
 
     # get active user data
-    active_user = users.get_active_user_name(session)
+    active_user = users.get_active_user_name()
     trans_data = TransData(active_user)
 
     # filter first and last month's data if applicable
@@ -146,7 +143,6 @@ def review(filter_edges: bool, category: str):
         except ValueError as v_err:
             print(f'{v_err} Try re-issueing without the "--filter_edges" option.\n')
             return
-
 
     # generate review output
     if category:

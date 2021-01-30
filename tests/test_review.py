@@ -3,7 +3,6 @@
 from math import isclose
 
 import pandas as pd
-
 from tally.review import TransData
 
 

@@ -5,7 +5,7 @@ from datetime import date
 import pytest
 from tally.categ import (TransDict, add_categ, categorize, delete_categ,
                          get_categs, update_categ)
-from tally.models import Bill, Category, get_session
+from tally.models import Bill, Category, session
 
 test_input = [
     pytest.param(add_categ, 'new_categ', None, ['groceries', 'gas', 'misc', 'new_categ'],
@@ -31,7 +31,7 @@ def test_user_operation(sample_db, mock_exit, func, categ1, categ2, categ_list):
         func(categ1, categ2)
     else:
         func(categ1)
-    categs = sample_db.query(Category).filter_by(user_name='scott').all()
+    categs = session.query(Category).filter_by(user_name='scott').all()
     categ_names = [categ.name for categ in categs]
     assert sorted(categ_names) == sorted(categ_list)
 
@@ -51,7 +51,6 @@ def test_categorize(empty_db, mock_pick):
     test_msg = categorize(trans_dict, True)
     assert test_msg == '4 transactions added successfully.'
 
-    session = get_session()
     test_bills = session.query(Bill).all()
     assert len(test_bills) == 4
     assert test_bills[0].date == date(2020, 1, 1)

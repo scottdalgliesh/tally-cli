@@ -1,6 +1,6 @@
+import re
 from datetime import date, datetime
 from pathlib import Path
-import re
 from typing import List, Tuple, TypedDict, Union
 
 from tika import parser

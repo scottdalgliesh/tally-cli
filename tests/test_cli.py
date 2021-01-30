@@ -4,11 +4,11 @@ from typing import Dict
 
 import pytest
 from click.testing import CliRunner
-
 from tally import categ, parse, users
 from tally.cli import cli
-from tally.models import Bill, User, get_session
+from tally.models import Bill, User, session
 from tally.review import TransData
+
 from .test_parse import sample1
 
 MSG_USER_NO_OPTIONS = (
@@ -73,8 +73,8 @@ def test_user_set_active(sample_db, cli_input, delete_users, partial_message):
     runner = CliRunner()
     if delete_users:
         for user_name in delete_users:
-            sample_db.query(User).filter_by(name=user_name).delete()
-        sample_db.commit()
+            session.query(User).filter_by(name=user_name).delete()
+        session.commit()
     runner.invoke(cli, cli_input)
     result = runner.invoke(cli, ['user'])
     assert partial_message in result.output
@@ -144,7 +144,6 @@ def test_parse(empty_db, monkeypatch, mock_pick):
     assert result.output == '7 transactions added successfully.\n'
 
     # verify database integrity after testing
-    session = get_session()
     test_bills = session.query(Bill).all()
     assert len(test_bills) == 7
     assert test_bills[0].date == date(2019, 3, 22)

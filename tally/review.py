@@ -1,9 +1,9 @@
 from copy import deepcopy
 from datetime import date
+
 import pandas as pd
 
-from .models import get_engine, get_session, Category
-
+from .models import Category, engine, session
 
 # set pandas global display options
 pd.options.display.max_rows = 10_000
@@ -35,7 +35,6 @@ class TransData():
     def __init__(self, user_name: str):
         '''Retrieve all data for the specified user and store as a DataFrame, indexed by date.'''
         # get bill data for specified user
-        engine = get_engine()
         user_data = pd.read_sql('bills', engine, index_col='date', parse_dates='date',
                                 columns=['date', 'descr', 'value', 'user_name', 'category_id'])
         user_data = user_data.sort_index()
@@ -43,7 +42,6 @@ class TransData():
         user_data = user_data[user_filt]
 
         # convert category_id to category name
-        session = get_session()
         user_categs = session.query(Category).\
             filter_by(user_name=user_name).all()
         categ_map = {categ.id: categ.name for categ in user_categs}

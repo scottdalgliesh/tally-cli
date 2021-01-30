@@ -1,9 +1,9 @@
 #pylint:disable=[missing-function-docstring, unused-argument]
 
 import pytest
-
-from tally.models import ActiveUser, User
-from tally.users import active_user_exists, add_user, delete_user, set_active_user, update_user
+from tally.models import ActiveUser, User, session
+from tally.users import (active_user_exists, add_user, delete_user,
+                         set_active_user, update_user)
 
 test_input = [
     pytest.param(add_user, 'new_user', None, ['scott', 'sarah', 'new_user'],
@@ -29,7 +29,7 @@ def test_user_operation(sample_db, mock_exit, func, user1, user2, users_list):
         func(user1, user2)
     else:
         func(user1)
-    users = sample_db.query(User).all()
+    users = session.query(User).all()
     user_names = [user.name for user in users]
     assert user_names == users_list
 
@@ -46,13 +46,13 @@ test_input = [
 @pytest.mark.parametrize('user_name,table_is_empty,active_user', test_input)
 def test_update_active_user(sample_db, mock_exit, user_name, table_is_empty, active_user):
     if table_is_empty:
-        current_active_user = sample_db.query(ActiveUser).first()
-        sample_db.delete(current_active_user)
-        sample_db.commit()
-    exists = active_user_exists(sample_db)
+        current_active_user = session.query(ActiveUser).first()
+        session.delete(current_active_user)
+        session.commit()
+    exists = active_user_exists()
     assert exists is not table_is_empty
     set_active_user(user_name)
-    new_active_users = sample_db.query(ActiveUser).all()
+    new_active_users = session.query(ActiveUser).all()
     new_active_users_names = [
         active_user.name for active_user in new_active_users]
     assert new_active_users_names == active_user

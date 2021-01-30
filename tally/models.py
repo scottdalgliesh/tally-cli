@@ -1,34 +1,11 @@
 # pylint:disable=[missing-class-docstring, missing-module-docstring]
 
-from pathlib import Path
-from typing import Optional, Union
-
 from sqlalchemy import (Column, Date, Float, ForeignKey, Integer, String,
                         UniqueConstraint, create_engine, event)
-from sqlalchemy.engine.base import Engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship, sessionmaker
-from sqlalchemy.orm.session import Session
 
 from . import config
-
-
-def get_engine(url: Optional[Union[str, Path]] = None) -> Engine:
-    """Wrapper to delay engine instantiation until runtime."""
-    if url is None:
-        url = config.DB_URL
-    engine = create_engine(f'sqlite:///{url}')
-    event.listen(engine, 'connect', _fk_pragma_on_connect)
-    return engine
-
-
-def get_session(url: Optional[Union[str, Path]] = None) -> Session:
-    """Wrapper to delay session instantiation until runtime."""
-    if url is None:
-        url = config.DB_URL
-    engine = get_engine(url)
-    session = sessionmaker(engine)
-    return session()
 
 
 def _fk_pragma_on_connect(dbapi_con, con_record):  # pylint: disable=unused-argument
@@ -36,7 +13,12 @@ def _fk_pragma_on_connect(dbapi_con, con_record):  # pylint: disable=unused-argu
     dbapi_con.execute('pragma foreign_keys=ON')
 
 
-Base = declarative_base()
+engine = create_engine(f'sqlite:///{config.DB_URL}')
+event.listen(engine, 'connect', _fk_pragma_on_connect)
+Session = sessionmaker(engine)
+session = Session()
+
+Base = declarative_base(bind=engine)
 
 
 class User(Base):
@@ -103,4 +85,4 @@ class ActiveUser(Base):
         return f'<ActiveUser(name="{self.name}")>'
 
 
-Base.metadata.create_all(get_engine())
+Base.metadata.create_all()

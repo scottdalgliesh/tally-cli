@@ -5,7 +5,6 @@ from datetime import date
 from typing import Dict
 
 import pytest
-
 from tally import parse
 from tally.parse import get_statement_dates, get_transactions, parse_statement
 
@@ -79,6 +78,7 @@ test_input = [
     pytest.param(sample2['url'], sample2['statement_text'],
                  sample2['trans_dict'], id='transition')
 ]
+
 
 @pytest.mark.parametrize('statement_url,statement_text, trans_dict', test_input)
 def test_parse_statement(monkeypatch, statement_url, statement_text, trans_dict):
