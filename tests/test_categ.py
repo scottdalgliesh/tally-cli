@@ -1,36 +1,42 @@
 #pylint:disable=[missing-function-docstring, unused-argument]
 
+from contextlib import nullcontext
 from datetime import date
 
 import pytest
+from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm.exc import NoResultFound
 from tally.categ import (TransDict, add_categ, categorize, delete_categ,
                          get_categs, update_categ)
 from tally.models import Bill, Category, session
 
 test_input = [
     pytest.param(add_categ, 'new_categ', None, ['groceries', 'gas', 'misc', 'new_categ'],
-                 id='add_categ_valid'),
+                 nullcontext(), id='add_categ_valid'),
     pytest.param(add_categ, 'groceries', None, ['groceries', 'gas', 'misc'],
-                 id='add_categ_duplicate'),
+                 pytest.raises(IntegrityError), id='add_categ_duplicate'),
     pytest.param(update_categ, 'groceries', 'groceries2', ['groceries2', 'gas', 'misc'],
-                 id='update_categ_valid'),
+                 nullcontext(), id='update_categ_valid'),
     pytest.param(update_categ, 'groceries', 'gas', ['groceries', 'gas', 'misc'],
-                 id='update_categ_duplicate'),
+                 pytest.raises(IntegrityError), id='update_categ_duplicate'),
     pytest.param(update_categ, 'non_existing', 'new', ['groceries', 'gas', 'misc'],
-                 id='update_categ_non_existing'),
+                 pytest.raises(NoResultFound), id='update_categ_non_existing'),
     pytest.param(delete_categ, 'groceries', None, ['gas', 'misc'],
-                 id='delete_categ_valid'),
+                 nullcontext(), id='delete_categ_valid'),
     pytest.param(delete_categ, 'non_existing', None, ['groceries', 'gas', 'misc'],
-                 id='delete_categ_non_existing'),
+                 pytest.raises(NoResultFound), id='delete_categ_non_existing'),
 ]
 
 
-@pytest.mark.parametrize('func,categ1,categ2,categ_list', test_input)
-def test_user_operation(sample_db, mock_exit, func, categ1, categ2, categ_list):
-    if func is update_categ:
-        func(categ1, categ2)
-    else:
-        func(categ1)
+@pytest.mark.parametrize('func,categ1,categ2,categ_list,context', test_input)
+def test_user_operation(sample_db, func, categ1, categ2, categ_list, context):
+    with context:
+        if func is update_categ:
+            func(categ1, categ2)
+        else:
+            func(categ1)
+    if not context is nullcontext():
+        session.rollback()
     categs = session.query(Category).filter_by(user_name='scott').all()
     categ_names = [categ.name for categ in categs]
     assert sorted(categ_names) == sorted(categ_list)

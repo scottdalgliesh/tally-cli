@@ -4,6 +4,7 @@ from . import categ as _categ
 from . import parse as _parse
 from . import users
 from .review import TransData
+from .utils import handle_db_session, require_active_user
 
 
 @click.group()
@@ -20,7 +21,8 @@ def cli():
               type=click.STRING)
 @click.option('-s', '--set_active', help='Set the active user.',
               type=click.STRING)
-@ click.option('--confirm', is_flag=True, help='Confirm delete action.')
+@click.option('--confirm', is_flag=True, help='Confirm delete action.')
+@handle_db_session
 def user(add: str, update: str, delete: str, set_active: str, confirm: bool):
     """Manage users & set active user. Issue without options to list users."""
     # validate only a single option is used
@@ -72,6 +74,8 @@ def user(add: str, update: str, delete: str, set_active: str, confirm: bool):
 @click.option('-d', '--delete', help='Delete a category.',
               type=click.STRING)
 @click.option('--confirm', is_flag=True, help='Confirm delete action.')
+@require_active_user
+@handle_db_session
 def categ(add: str, update: str, delete: str, confirm: bool):
     """Manage categories. Issue without options to list active user categories."""
     # validate only a single option is used
@@ -79,10 +83,6 @@ def categ(add: str, update: str, delete: str, confirm: bool):
                       if option not in [None, ()]]
     if len(active_options) > 1:
         msg = 'Invalid entry. Only a single option can be used at once.'
-
-    # validate that active user is set
-    elif not users.active_user_exists():
-        msg = 'Active user is not set. See command "user -s"'
 
     # if no options entered, list users
     elif len(active_options) == 0:
@@ -102,7 +102,7 @@ def categ(add: str, update: str, delete: str, confirm: bool):
         if confirm:
             msg = _categ.delete_categ(delete)
         else:
-            msg = (f'Are you sure you want to delete categpru "{delete}"?\n'
+            msg = (f'Are you sure you want to delete category "{delete}"?\n'
                    'Issue command with "--confirm" to complete operation.')
     else:
         msg = 'Internal error. No actions taken.'
@@ -113,6 +113,8 @@ def categ(add: str, update: str, delete: str, confirm: bool):
 @click.argument('filepath', type=click.Path(exists=True, dir_okay=False))
 @click.option('--no_confirm', is_flag=True,
               help='Do not require active user confirmation.')
+@require_active_user
+@handle_db_session
 def parse(filepath: str, no_confirm: bool):
     '''Parse & categorize a pdf statement.'''
     trans_dict = _parse.parse_statement(filepath)
@@ -125,13 +127,9 @@ def parse(filepath: str, no_confirm: bool):
               help='Filter out first and last month\'s data (which may be incomplete).')
 @click.option('-c', '--category', help='List transactions for specified category.',
               type=click.STRING)
+@require_active_user
 def review(filter_edges: bool, category: str):
     """Review transaction data for the active user."""
-    # validate active user exists
-    if not users.active_user_exists():
-        print('Active user is not set. See command "user -s"', '\n')
-        return
-
     # get active user data
     active_user = users.get_active_user_name()
     trans_data = TransData(active_user)

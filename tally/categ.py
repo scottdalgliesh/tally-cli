@@ -4,8 +4,8 @@ from pick import pick
 
 from .models import Category, session
 from .parse import TransDict
-from .users import active_user_exists, get_active_user, get_active_user_name
-from .utils import new_bill, safe_commit
+from .users import get_active_user, get_active_user_name
+from .utils import new_bill
 
 
 def categorize(trans_dict: TransDict, no_confirm: bool) -> str:
@@ -40,52 +40,38 @@ def categorize(trans_dict: TransDict, no_confirm: bool) -> str:
         )
         session.add(bill)
         new_bill_count += 1
-    safe_commit()
+    session.commit()
     return f'{new_bill_count} transactions added successfully.'
 
 
 def get_categs() -> List[str]:
-    '''Get all categories.'''
-    if not active_user_exists():
-        return []
+    '''Get all categories for the active user.'''
     categs = get_active_user().categories
     return [categ.name for categ in categs]  # type: ignore
 
 
 def add_categ(categ_name: str) -> str:
-    '''Add a new category.'''
-    active_user_name = get_active_user_name()
-    new_category = Category(name=categ_name, user_name=active_user_name)
+    '''Add a new category for the active user.'''
+    new_category = Category(name=categ_name, user_name=get_active_user_name())
     session.add(new_category)
-    safe_commit()
+    session.commit()
     return f'Category {categ_name} added successfully.'
 
 
 def update_categ(old_categ_name: str, new_categ_name: str) -> str:
-    '''Modify an existing category's name.'''
-    session.autoflush = False
-    active_user_name = get_active_user_name()
-    categ = session.query(Category).filter_by(name=old_categ_name,
-                                              user_name=active_user_name).first()
-    if categ is None:
-        msg = f'Category "{old_categ_name}" does not exist. Please verify spelling.'
-    else:
-        categ.name = new_categ_name
-        safe_commit()
-        msg = f'User "{old_categ_name}" successfully updated to "{new_categ_name}".'
-    return msg
+    '''Modify an existing category's name for the active user.'''
+    categ = session.query(Category).filter_by(
+        name=old_categ_name, user_name=get_active_user_name()).one()
+    categ.name = new_categ_name
+    session.commit()
+    return (f'Category "{old_categ_name}" successfully updated '
+            f'to "{new_categ_name}".')
 
 
 def delete_categ(categ_name: str) -> str:
-    """Delete an existing category."""
-    session.autoflush = False
-    active_user_name = get_active_user_name()
-    categ = session.query(Category).filter_by(name=categ_name,
-                                              user_name=active_user_name).first()
-    if categ is None:
-        msg = f'Category "{categ_name}" does not exist. Please verify spelling.'
-    else:
-        session.delete(categ)
-        safe_commit()
-        msg = f'Category "{categ_name}" successfully deleted.'
-    return msg
+    """Delete an existing category for the active user."""
+    categ = session.query(Category).filter_by(
+        name=categ_name, user_name=get_active_user_name()).one()
+    session.delete(categ)
+    session.commit()
+    return f'Category "{categ_name}" successfully deleted.'

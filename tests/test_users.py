@@ -1,58 +1,64 @@
 #pylint:disable=[missing-function-docstring, unused-argument]
+from contextlib import nullcontext
 
 import pytest
+from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm.exc import NoResultFound
 from tally.models import ActiveUser, User, session
-from tally.users import (active_user_exists, add_user, delete_user,
-                         set_active_user, update_user)
+from tally.users import add_user, delete_user, set_active_user, update_user
 
 test_input = [
     pytest.param(add_user, 'new_user', None, ['scott', 'sarah', 'new_user'],
-                 id='add_user_valid'),
+                 nullcontext(), id='add_user_valid'),
     pytest.param(add_user, 'scott', None, ['scott', 'sarah'],
-                 id='add_user_duplicate'),
+                 pytest.raises(IntegrityError), id='add_user_duplicate'),
     pytest.param(update_user, 'scott', 'new_user', ['new_user', 'sarah'],
-                 id='update_user_valid'),
+                 nullcontext(), id='update_user_valid'),
     pytest.param(update_user, 'scott', 'sarah', ['scott', 'sarah'],
-                 id='update_user_duplicate'),
+                 pytest.raises(IntegrityError), id='update_user_duplicate'),
     pytest.param(update_user, 'non_existing_user', 'sarah', ['scott', 'sarah'],
-                 id='update_user_non_existing'),
+                 pytest.raises(NoResultFound), id='update_user_non_existing'),
     pytest.param(delete_user, 'scott', None, ['sarah'],
-                 id='delete_user_valid'),
+                 nullcontext(), id='delete_user_valid'),
     pytest.param(delete_user, 'non_existing_user', None, ['scott', 'sarah'],
-                 id='delete_user_non_existing'),
+                 pytest.raises(NoResultFound), id='delete_user_non_existing'),
 ]
 
 
-@pytest.mark.parametrize('func,user1,user2,users_list', test_input)
-def test_user_operation(sample_db, mock_exit, func, user1, user2, users_list):
-    if func is update_user:
-        func(user1, user2)
-    else:
-        func(user1)
+@pytest.mark.parametrize('func,user1,user2,users_list,context', test_input)
+def test_user_operation(sample_db, func, user1, user2, users_list, context):
+    with context:
+        if func is update_user:
+            func(user1, user2)
+        else:
+            func(user1)
+    if not context is nullcontext():
+        session.rollback()
     users = session.query(User).all()
     user_names = [user.name for user in users]
     assert user_names == users_list
 
 
 test_input = [
-    pytest.param('sarah', False, ['sarah'], id='valid'),
-    pytest.param('scott', False, ['scott'], id='already_active_user'),
-    pytest.param('non_existing_user', False, [
-                 'scott'], id='non_existing_user'),
-    pytest.param('scott', True, ['scott'], id='from_empty_table'),
+    pytest.param('sarah', False, 'sarah', nullcontext(), id='valid'),
+    pytest.param('scott', False, 'scott',
+                 nullcontext(), id='already_active_user'),
+    pytest.param('non_existing_user', False, 'scott',
+                 pytest.raises(NoResultFound), id='non_existing_user'),
+    pytest.param('scott', True, 'scott',
+                 nullcontext(), id='from_empty_table'),
 ]
 
 
-@pytest.mark.parametrize('user_name,table_is_empty,active_user', test_input)
-def test_update_active_user(sample_db, mock_exit, user_name, table_is_empty, active_user):
+@pytest.mark.parametrize('user_name,table_is_empty,active_user, context', test_input)
+def test_update_active_user(sample_db, user_name, table_is_empty, active_user, context):
     if table_is_empty:
         current_active_user = session.query(ActiveUser).first()
         session.delete(current_active_user)
         session.commit()
-    exists = active_user_exists()
-    assert exists is not table_is_empty
-    set_active_user(user_name)
-    new_active_users = session.query(ActiveUser).all()
-    new_active_users_names = [
-        active_user.name for active_user in new_active_users]
-    assert new_active_users_names == active_user
+    with context:
+        set_active_user(user_name)
+    if not context is nullcontext():
+        session.rollback()
+    new_active_users = session.query(ActiveUser).one()
+    assert new_active_users.name == active_user

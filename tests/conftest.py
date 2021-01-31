@@ -1,7 +1,6 @@
 #pylint:disable=[missing-function-docstring, redefined-outer-name, unused-argument]
 
 import os
-import sys
 from datetime import date
 
 import pytest
@@ -97,13 +96,6 @@ def review_db(sample_db):
 def sample_bill():
     return new_bill(date(2020, 1, 26), 'sample', 100,
                     'scott', 'groceries')
-
-
-@pytest.fixture()
-def mock_exit(monkeypatch):
-    def new_exit():
-        pass
-    monkeypatch.setattr(sys, 'exit', new_exit)
 
 
 @pytest.fixture
