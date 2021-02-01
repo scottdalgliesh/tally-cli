@@ -1,3 +1,5 @@
+from typing import Tuple
+
 import click
 
 from . import categ as _categ
@@ -13,100 +15,124 @@ def cli():
     pass
 
 
-@cli.command()
-@click.option('-a', '--add', help='Add a new user.', type=str)
-@click.option('-u', '--update', help='Update an existing user.',
-              nargs=2, type=str)
-@click.option('-d', '--delete', help='Delete a user.',
-              type=click.STRING)
-@click.option('-s', '--set_active', help='Set the active user.',
-              type=click.STRING)
-@click.option('--confirm', is_flag=True, help='Confirm delete action.')
-@handle_db_session
-def user(add: str, update: str, delete: str, set_active: str, confirm: bool):
-    """Manage users & set active user. Issue without options to list users."""
-    # validate only a single option is used
-    active_options = [option for option in [add, update, delete, set_active]
-                      if option not in [None, ()]]
-    if len(active_options) > 1:
-        msg = 'Invalid entry. Only a single option can be used at once.'
+@cli.group()
+def user():
+    """Manage users & set the active user."""
+    pass
 
-    # if no options entered, list users
-    elif len(active_options) == 0:
-        user_names = users.get_users()
-        if len(user_names) == 0:
-            msg = 'No users exist yet. See option "-a" to create a new user.'
-        else:
-            title = 'List of Users:'
-            msg = '\n'.join([title, '-'*len(title), *user_names])
 
-        # add '*' to active user, or note if no active user exists
-        if users.active_user_exists():
-            active_user = users.get_active_user_name()
-            index = msg.find(active_user)
-            msg = msg[:index] + '*' + msg[index:]
-        else:
-            msg = msg + ('\n\n*No active user set.\nSee option '
-                         '"-s" to set the active user.')
-
-    # option-directed function calls
-    elif add is not None:
-        msg = users.add_user(add)
-    elif update != ():
-        msg = users.update_user(*update)
-    elif delete is not None:
-        if confirm:
-            msg = users.delete_user(delete)
-        else:
-            msg = (f'Are you sure you want to delete user "{delete}"?\n'
-                   'Issue command with "--confirm" to complete operation.')
-    elif set_active is not None:
-        msg = users.set_active_user(set_active)
+@user.command(name='list')
+def list_users():
+    """List all users. The active user is denoted by an asterisk."""
+    user_names = users.get_users()
+    if len(user_names) == 0:
+        print('No users exist yet. See option "user add" to create a new user.')
+        return None
+    title = 'List of Users:'
+    msg = '\n'.join([title, '-'*len(title), *user_names])
+    if users.active_user_exists():
+        active_user = users.get_active_user_name()
+        index = msg.find(active_user)
+        msg = msg[:index] + '*' + msg[index:]
     else:
-        msg = 'Internal error. No actions taken.'
-    print(msg, '\n', sep='')
+        msg = msg + ('\n\n*No active user set.\nSee command '
+                     '"user active" to set the active user.')
+    print(msg)
 
 
-@cli.command()
-@click.option('-a', '--add', help='Add a new category.', type=str)
-@click.option('-u', '--update', help='Update an existing category.',
-              nargs=2, type=str)
-@click.option('-d', '--delete', help='Delete a category.',
-              type=click.STRING)
-@click.option('--confirm', is_flag=True, help='Confirm delete action.')
-@require_active_user
+@user.command(name='add')
+@click.argument('user_names', nargs=-1)
+@click.option('-s', '--set_active', is_flag=True, help='Set new user as active.')
 @handle_db_session
-def categ(add: str, update: str, delete: str, confirm: bool):
-    """Manage categories. Issue without options to list active user categories."""
-    # validate only a single option is used
-    active_options = [option for option in [add, update, delete]
-                      if option not in [None, ()]]
-    if len(active_options) > 1:
-        msg = 'Invalid entry. Only a single option can be used at once.'
+def add_user(user_names: Tuple[str], set_active: bool):
+    """Add one or more users."""
+    for user_name in user_names:
+        msg = users.add_user(user_name)
+        print(msg)
+    if set_active:
+        users.set_active_user(user_names[0])
 
-    # if no options entered, list users
-    elif len(active_options) == 0:
-        categ_names = _categ.get_categs()
-        if len(categ_names) == 0:
-            msg = 'No categories exist yet. See option "-a" to create a new category.'
-        else:
-            title = 'List of Categories:'
-            msg = '\n'.join([title, '-'*len(title), *categ_names])
 
-    # option-directed function calls
-    elif add is not None:
-        msg = _categ.add_categ(add)
-    elif update != ():
-        msg = _categ.update_categ(*update)
-    elif delete is not None:
-        if confirm:
-            msg = _categ.delete_categ(delete)
-        else:
-            msg = (f'Are you sure you want to delete category "{delete}"?\n'
-                   'Issue command with "--confirm" to complete operation.')
+@user.command('update')
+@click.argument('old_user_name')
+@click.argument('new_user_name')
+@handle_db_session
+def update_user(old_user_name: str, new_user_name: str):
+    """Update a user's name."""
+    msg = users.update_user(old_user_name, new_user_name)
+    print(msg)
+
+
+@user.command('delete')
+@click.argument('user_names', nargs=-1)
+@click.confirmation_option(
+    prompt='Are you sure you want to delete the specified user(s)?')
+@handle_db_session
+def delete_user(user_names: Tuple[str]):
+    """Delete one or more users."""
+    for user_name in user_names:
+        msg = users.delete_user(user_name)
+        print(msg)
+
+
+@user.command()
+@click.argument('user_name')
+@handle_db_session
+def active(user_name: str):
+    """Set the active user."""
+    msg = users.set_active_user(user_name)
+    print(msg)
+
+
+@cli.group()
+def categ():
+    """Manage categories for the active user."""
+    pass
+
+
+@categ.command(name='list')
+def list_categs():
+    """List all categories for the active user."""
+    categ_names = _categ.get_categs()
+    if len(categ_names) == 0:
+        msg = ('No categories exist yet. See command "categ add" to create '
+               'a new category.')
     else:
-        msg = 'Internal error. No actions taken.'
-    print(msg, '\n', sep='')
+        title = 'List of Categories:'
+        msg = '\n'.join([title, '-'*len(title), *categ_names])
+    print(msg)
+
+
+@categ.command(name='add')
+@click.argument('categ_names', nargs=-1)
+@handle_db_session
+def add_categ(categ_names: Tuple[str]):
+    """Add one or more categories."""
+    for categ_name in categ_names:
+        msg = _categ.add_categ(categ_name)
+        print(msg)
+
+
+@categ.command('update')
+@click.argument('old_categ_name')
+@click.argument('new_categ_name')
+@handle_db_session
+def update_categ(old_categ_name: str, new_categ_name: str):
+    """Update a category's name."""
+    msg = _categ.update_categ(old_categ_name, new_categ_name)
+    print(msg)
+
+
+@categ.command('delete')
+@click.argument('categ_names', nargs=-1)
+@click.confirmation_option(
+    prompt='Are you sure you want to delete the specified category(ies)?')
+@handle_db_session
+def delete_categ(categ_names: Tuple[str]):
+    """Delete one or more categories."""
+    for categ_name in categ_names:
+        msg = _categ.delete_categ(categ_name)
+        print(msg)
 
 
 @cli.command()

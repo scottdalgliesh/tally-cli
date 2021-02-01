@@ -6,43 +6,40 @@ import pytest
 from click.testing import CliRunner
 from tally import categ, parse, users
 from tally.cli import cli
-from tally.models import Bill, User, session
+from tally.models import ActiveUser, Bill, User, session
 from tally.review import TransData
 
 from .test_parse import sample1
 
-MSG_USER_NO_OPTIONS = (
+MSG_USER_LIST = (
     '''
 List of Users:
 --------------
 *scott
 sarah
-
 '''.lstrip('\n')
 )
 
 test_input = [
-    pytest.param(['user'], ['scott', 'sarah'],
-                 MSG_USER_NO_OPTIONS, id='no args'),
-    pytest.param(['user', '-a', 'delta', '-u', 'delta', 'sam'],
-                 ['scott', 'sarah'], None, id='too many options'),
-    pytest.param(['user', '-a', 'delta'],
+    pytest.param(['user', 'list'], ['scott', 'sarah'],
+                 MSG_USER_LIST, id='list'),
+    pytest.param(['user', 'add', 'delta'],
                  ['scott', 'sarah', 'delta'], None, id='add: valid'),
-    pytest.param(['user', '-a', 'scott'],
+    pytest.param(['user', 'add', 'scott'],
                  ['scott', 'sarah'], None, id='add: dup'),
-    pytest.param(['user', '-u', 'scott', 'new_scott'],
+    pytest.param(['user', 'update', 'scott', 'new_scott'],
                  ['new_scott', 'sarah'], None, id='update: valid'),
-    pytest.param(['user', '-u', 'scott'],
+    pytest.param(['user', 'update', 'scott'],
                  ['scott', 'sarah'], None, id='update: missing second arg'),
-    pytest.param(['user', '-u', 'scott', 'sarah'],
+    pytest.param(['user', 'update', 'scott', 'sarah'],
                  ['scott', 'sarah'], None, id='update: duplicate'),
-    pytest.param(['user', '-u', 'invalid', 'delta'],
+    pytest.param(['user', 'update', 'invalid', 'delta'],
                  ['scott', 'sarah'], None, id='update: does not exist'),
-    pytest.param(['user', '-d', 'scott', '--confirm'],
+    pytest.param(['user', 'delete', 'scott', '--yes'],
                  ['sarah'], None, id='delete: valid'),
-    pytest.param(['user', '-d', 'scott'],
+    pytest.param(['user', 'delete', 'scott'],
                  ['scott', 'sarah'], None, id='delete: missing confirm'),
-    pytest.param(['user', '-d', 'delta'],
+    pytest.param(['user', 'delete', 'delta', '--yes'],
                  ['scott', 'sarah'], None, id='delete: does not exist'),
 ]
 
@@ -58,12 +55,12 @@ def test_user_general_operations(sample_db, cli_input, user_list, output_msg):
 
 
 test_input = [
-    pytest.param(['user', '-s', 'sarah'], None, '*sarah', id='valid'),
-    pytest.param(['user', '-s', 'delta'], None,
+    pytest.param(['user', 'active', 'sarah'], None, '*sarah', id='valid'),
+    pytest.param(['user', 'active', 'delta'], None,
                  '*scott', id='non-existing user'),
-    pytest.param(['user', '-s', 'scott'], ['scott', 'sarah'],
+    pytest.param(['user', 'active', 'scott'], ['scott', 'sarah'],
                  'No users exist', id='empty table'),
-    pytest.param(['user', '-s', 'sarah'], ['scott'],
+    pytest.param(['user', 'active', 'sarah'], ['scott'],
                  '*sarah', id='from no active user'),
 ]
 
@@ -76,8 +73,22 @@ def test_user_set_active(sample_db, cli_input, delete_users, partial_message):
             session.query(User).filter_by(name=user_name).delete()
         session.commit()
     runner.invoke(cli, cli_input)
-    result = runner.invoke(cli, ['user'])
+    result = runner.invoke(cli, ['user', 'list'])
     assert partial_message in result.output
+
+
+test_input = [
+    pytest.param('user add -s delta', 'delta', id='activate option'),
+    pytest.param('user add delta', 'scott', id='without activate option'),
+]
+
+
+@pytest.mark.parametrize('cli_input,active_user', test_input)
+def test_user_add_and_activate(sample_db, cli_input, active_user):
+    runner = CliRunner()
+    runner.invoke(cli, cli_input)
+    assert 'delta' in users.get_users()
+    assert session.query(ActiveUser).one().name == active_user
 
 
 MSG_CATEG_NO_OPTIONS = (
@@ -87,32 +98,29 @@ List of Categories:
 gas
 groceries
 misc
-
 '''.lstrip('\n')
 )
 
 test_input = [
-    pytest.param(['categ'], ['groceries', 'gas', 'misc'],
-                 MSG_CATEG_NO_OPTIONS, id='no args'),
-    pytest.param('categ -a new -u groceries groceries2'.split(), ['groceries', 'gas', 'misc'],
-                 None, id='too many options'),
-    pytest.param('categ -a new'.split(), ['groceries', 'gas', 'misc', 'new'],
+    pytest.param('categ list'.split(), ['groceries', 'gas', 'misc'],
+                 MSG_CATEG_NO_OPTIONS, id='list'),
+    pytest.param('categ add new'.split(), ['groceries', 'gas', 'misc', 'new'],
                  None, id='add valid'),
-    pytest.param('categ -a groceries'.split(), ['groceries', 'gas', 'misc'],
+    pytest.param('categ add groceries'.split(), ['groceries', 'gas', 'misc'],
                  None, id='add duplicate'),
-    pytest.param('categ -u groceries groc2'.split(), ['groc2', 'gas', 'misc'],
+    pytest.param('categ update groceries groc2'.split(), ['groc2', 'gas', 'misc'],
                  None, id='update valid'),
-    pytest.param('categ -u groceries'.split(), ['groceries', 'gas', 'misc'],
+    pytest.param('categ update groceries'.split(), ['groceries', 'gas', 'misc'],
                  None, id='update missing second arg'),
-    pytest.param('categ -u groceries gas'.split(), ['groceries', 'gas', 'misc'],
+    pytest.param('categ update groceries gas'.split(), ['groceries', 'gas', 'misc'],
                  None, id='update duplicate'),
-    pytest.param('categ -u new1 new2'.split(), ['groceries', 'gas', 'misc'],
+    pytest.param('categ update new1 new2'.split(), ['groceries', 'gas', 'misc'],
                  None, id='update does not exist'),
-    pytest.param('categ -d groceries --confirm'.split(), ['gas', 'misc'],
+    pytest.param('categ delete groceries --yes'.split(), ['gas', 'misc'],
                  None, id='delete valid'),
-    pytest.param('categ -d groceries'.split(), ['groceries', 'gas', 'misc'],
+    pytest.param('categ delete groceries'.split(), ['groceries', 'gas', 'misc'],
                  None, id='delete no confirm'),
-    pytest.param('categ -d new --confirm'.split(), ['groceries', 'gas', 'misc'],
+    pytest.param('categ delete new --yes'.split(), ['groceries', 'gas', 'misc'],
                  None, id='delete non-existing'),
 ]
 
