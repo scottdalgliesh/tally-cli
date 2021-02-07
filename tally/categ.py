@@ -50,9 +50,21 @@ def get_categs() -> List[str]:
     return [categ.name for categ in categs]  # type: ignore
 
 
-def add_categ(categ_name: str) -> str:
+def is_hidden(categ_name: str) -> bool:
+    '''Check if a category is hidden for the active user.'''
+    state = session.query(Category).\
+        filter_by(name=categ_name, user_name=get_active_user_name()).\
+        one().hidden
+    return state
+
+
+def add_categ(categ_name: str, hidden: bool = False) -> str:
     '''Add a new category for the active user.'''
-    new_category = Category(name=categ_name, user_name=get_active_user_name())
+    new_category = Category(
+        name=categ_name,
+        user_name=get_active_user_name(),
+        hidden=hidden
+    )
     session.add(new_category)
     session.commit()
     return f'Category {categ_name} added successfully.'
@@ -66,6 +78,16 @@ def update_categ(old_categ_name: str, new_categ_name: str) -> str:
     session.commit()
     return (f'Category "{old_categ_name}" successfully updated '
             f'to "{new_categ_name}".')
+
+
+def set_categ_display(categ_name: str, hidden: bool) -> str:
+    """Set the display state of a category for the active user."""
+    categ = session.query(Category).filter_by(
+        name=categ_name, user_name=get_active_user_name()).one()
+    categ.hidden = hidden
+    session.commit()
+    state = 'disabled' if hidden else 'enabled'
+    return f'Display of category "{categ_name}" successfully {state}.'
 
 
 def delete_categ(categ_name: str) -> str:

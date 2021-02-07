@@ -1,7 +1,7 @@
 # pylint:disable=[missing-class-docstring, missing-module-docstring]
 
-from sqlalchemy import (Column, Date, Float, ForeignKey, Integer, String,
-                        UniqueConstraint, create_engine, event)
+from sqlalchemy import (Boolean, Column, Date, Float, ForeignKey, Integer,
+                        String, UniqueConstraint, create_engine, event)
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship, sessionmaker
 
@@ -40,6 +40,7 @@ class Category(Base):
     user_name = Column(
         String,
         ForeignKey('users.name', onupdate='CASCADE', ondelete='CASCADE'))
+    hidden = Column(Boolean, default=False)
     user = relationship('User', back_populates='categories')
     bills = relationship('Bill', back_populates='category',
                          cascade='all, delete-orphan')

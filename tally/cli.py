@@ -99,17 +99,24 @@ def list_categs():
                'a new category.')
     else:
         title = 'List of Categories:'
-        msg = '\n'.join([title, '-'*len(title), *categ_names])
+        msg = '\n'.join([title, '-'*len(title)]) + '\n'
+        for categ_name in categ_names:
+            msg += categ_name
+            if _categ.is_hidden(categ_name):
+                msg += ' (hidden)'
+            msg += '\n'
     print(msg)
 
 
 @categ.command(name='add')
 @click.argument('categ_names', nargs=-1)
+@click.option('-h', '--hidden', is_flag=True,
+              help='Hide category in summary outputs.')
 @handle_db_session
-def add_categ(categ_names: Tuple[str]):
+def add_categ(categ_names: Tuple[str], hidden: bool = False):
     """Add one or more categories."""
     for categ_name in categ_names:
-        msg = _categ.add_categ(categ_name)
+        msg = _categ.add_categ(categ_name, hidden)
         print(msg)
 
 
@@ -121,6 +128,26 @@ def update_categ(old_categ_name: str, new_categ_name: str):
     """Update a category's name."""
     msg = _categ.update_categ(old_categ_name, new_categ_name)
     print(msg)
+
+
+@categ.command(name='show')
+@click.argument('categ_names', nargs=-1)
+@handle_db_session
+def show_categ(categ_names: Tuple[str]):
+    """Enable display of one or more categories in summary outputs."""
+    for categ_name in categ_names:
+        msg = _categ.set_categ_display(categ_name, False)
+        print(msg)
+
+
+@categ.command(name='hide')
+@click.argument('categ_names', nargs=-1)
+@handle_db_session
+def hide_categ(categ_names: Tuple[str]):
+    """Disable display of one or more categories in summary outputs."""
+    for categ_name in categ_names:
+        msg = _categ.set_categ_display(categ_name, True)
+        print(msg)
 
 
 @categ.command('delete')
@@ -151,14 +178,16 @@ def parse(filepath: str, no_confirm: bool):
 @cli.command()
 @click.option('-f', '--filter_edges', is_flag=True,
               help='Filter out first and last month\'s data (which may be incomplete).')
+@click.option('-s', '--show_hidden', is_flag=True,
+              help='Show hidden categories in output.')
 @click.option('-c', '--category', help='List transactions for specified category.',
               type=click.STRING)
 @require_active_user
-def review(filter_edges: bool, category: str):
+def review(filter_edges: bool, category: str, show_hidden: bool):
     """Review transaction data for the active user."""
     # get active user data
     active_user = users.get_active_user_name()
-    trans_data = TransData(active_user)
+    trans_data = TransData(active_user, show_hidden=show_hidden)
 
     # filter first and last month's data if applicable
     if filter_edges:

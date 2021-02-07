@@ -91,6 +91,14 @@ def review_db(sample_db):
     session.add_all(new_bills)
     session.commit()
 
+    hidden_categ = Category(
+        name='sample_hidden', user_name='scott', hidden=True)
+    session.add(hidden_categ)
+    hidden_bill = new_bill(
+        date(2000, 1, 1), 'hidden', 100, 'scott', 'sample_hidden')
+    session.add(hidden_bill)
+    session.commit()
+
 
 @pytest.fixture()
 def sample_bill():

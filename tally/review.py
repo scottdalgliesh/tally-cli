@@ -32,7 +32,7 @@ class TransData():
 
     '''
 
-    def __init__(self, user_name: str):
+    def __init__(self, user_name: str, show_hidden: bool = False):
         '''Retrieve all data for the specified user and store as a DataFrame, indexed by date.'''
         # get bill data for specified user
         user_data = pd.read_sql('bills', engine, index_col='date', parse_dates='date',
@@ -47,6 +47,14 @@ class TransData():
         categ_map = {categ.id: categ.name for categ in user_categs}
         user_data['Category'] = user_data['category_id'].\
             apply(lambda x: categ_map[x])
+
+        # filter out hidden categories
+        if show_hidden is False:
+            hidden_categs = session.query(Category).\
+                filter_by(hidden=True).all()
+            hidden_categ_names = [categ.name for categ in hidden_categs]
+            hidden_filt = user_data['Category'].isin(hidden_categ_names)
+            user_data = user_data[~hidden_filt]
 
         # drop unnecessary columns and rename columns
         user_data.drop(columns=['user_name', 'category_id'], inplace=True)

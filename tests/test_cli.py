@@ -6,7 +6,7 @@ import pytest
 from click.testing import CliRunner
 from tally import categ, parse, users
 from tally.cli import cli
-from tally.models import ActiveUser, Bill, User, session
+from tally.models import ActiveUser, Bill, Category, User, session
 from tally.review import TransData
 
 from .test_parse import sample1
@@ -98,6 +98,7 @@ List of Categories:
 gas
 groceries
 misc
+
 '''.lstrip('\n')
 )
 
@@ -135,6 +136,46 @@ def test_categ_operations(sample_db, cli_input, categ_list, output_msg):
     assert sorted(test_categs) == sorted(categ_list)
 
 
+def test_list_categ_hidden(sample_db):
+    categ.add_categ('hidden_categ', hidden=True)
+    runner = CliRunner()
+    result = runner.invoke(cli, 'categ list')
+    assert 'hidden_categ (hidden)' in result.output
+
+
+test_input = [
+    pytest.param('categ add sample_categ'.split(),
+                 False, id='add_categ_default'),
+    pytest.param('categ add -h sample_categ'.split(),
+                 True, id='add_categ_hidden'),
+]
+
+
+@pytest.mark.parametrize('cli_input,is_hidden', test_input)
+def test_add_categ_hidden(empty_db, cli_input, is_hidden):
+    runner = CliRunner()
+    runner.invoke(cli, cli_input)
+    assert session.query(Category).\
+        filter_by(name='sample_categ').first().hidden is is_hidden
+
+
+test_input = [
+    pytest.param('categ hide sample_categ'.split(),
+                 False, True, id='hide'),
+    pytest.param('categ show sample_categ'.split(),
+                 True, False, id='show'),
+]
+
+
+@pytest.mark.parametrize('cli_input,add_hidden,is_hidden', test_input)
+def test_categ_display(empty_db, cli_input, add_hidden, is_hidden):
+    categ.add_categ('sample_categ', add_hidden)
+    runner = CliRunner()
+    runner.invoke(cli, cli_input)
+    assert session.query(Category).\
+        filter_by(name='sample_categ').first().hidden is is_hidden
+
+
 def test_parse(empty_db, monkeypatch, mock_pick):
     # mock the tika parser
     statement_text = sample1['statement_text']
@@ -163,11 +204,16 @@ def test_parse(empty_db, monkeypatch, mock_pick):
 
 
 def test_review(review_db):
-    cli_input = 'review'
     runner = CliRunner()
-    result = runner.invoke(cli, cli_input)
+    result = runner.invoke(cli, 'review')
     sample_df = TransData('scott').summarize_all()
     assert str(sample_df) in result.output
+
+
+def test_review_show_hidden(review_db):
+    runner = CliRunner()
+    result = runner.invoke(cli, 'review -s')
+    assert 'sample_hidden' in result.output
 
 
 def test_review_filter_edges(review_db):

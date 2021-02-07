@@ -7,7 +7,7 @@ import pytest
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm.exc import NoResultFound
 from tally.categ import (TransDict, add_categ, categorize, delete_categ,
-                         get_categs, update_categ)
+                         get_categs, set_categ_display, update_categ)
 from tally.models import Bill, Category, session
 
 test_input = [
@@ -45,6 +45,33 @@ def test_user_operation(sample_db, func, categ1, categ2, categ_list, context):
 def test_get_categs(sample_db):
     test_categs = get_categs()
     assert sorted(test_categs) == sorted(['groceries', 'gas', 'misc'])
+
+
+test_input = [
+    pytest.param(['sample_categ'], False, id='add_categ_default'),
+    pytest.param(['sample_categ', True], False, id='add_categ_hidden'),
+]
+
+
+@pytest.mark.parametrize('args,hidden', test_input)
+def test_add_categ_hidden(empty_db, args, hidden):
+    add_categ('sample_categ')
+    assert session.query(Category).\
+        filter_by(name='sample_categ').first().hidden is hidden
+
+
+test_input = [
+    pytest.param(False, True, True, id='hide_categ'),
+    pytest.param(True, False, False, id='show_categ'),
+]
+
+
+@pytest.mark.parametrize('add_hidden,set_hidden,is_hidden', test_input)
+def test_hide_categ(empty_db, add_hidden, set_hidden, is_hidden):
+    add_categ('sample_categ', add_hidden)
+    set_categ_display('sample_categ', set_hidden)
+    assert session.query(Category).\
+        filter_by(name='sample_categ').first().hidden is is_hidden
 
 
 def test_categorize(empty_db, mock_pick):

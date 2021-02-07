@@ -6,11 +6,17 @@ import pandas as pd
 from tally.review import TransData
 
 
-def test_init(sample_db):
+def test_init(review_db):
     data = TransData('scott').data
-    assert len(data) == 4
+    assert len(data) == 8
     assert data.columns.to_list() == ['Description', 'Value', 'Category']
-    assert data.iloc[0].to_list() == ['zehrs', 100.0, 'groceries']
+    assert data.iloc[0].to_list() == ['Previous month', 1, 'misc']
+
+
+def test_show_hidden(review_db):
+    data = TransData('scott', show_hidden=True).data
+    assert len(data) == 9
+    assert data.iloc[0].to_list() == ['hidden', 100, 'sample_hidden']
 
 
 def test_filter_first_and_last_month(review_db):
