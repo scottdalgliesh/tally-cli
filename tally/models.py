@@ -1,7 +1,8 @@
 # pylint:disable=[missing-class-docstring, missing-module-docstring]
 
 from sqlalchemy import (Boolean, Column, Date, Float, ForeignKey, Integer,
-                        String, UniqueConstraint, create_engine, event)
+                        MetaData, String, UniqueConstraint, create_engine,
+                        event)
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship, sessionmaker
 
@@ -17,8 +18,15 @@ engine = create_engine(f'sqlite:///{config.DB_URL}')
 event.listen(engine, 'connect', _fk_pragma_on_connect)
 Session = sessionmaker(engine)
 session = Session()
-
-Base = declarative_base(bind=engine)
+convention = {
+    "ix": 'ix_%(column_0_label)s',
+    "uq": "uq_%(table_name)s_%(column_0_name)s",
+    "ck": "ck_%(table_name)s_%(column_0_name)s",
+    "fk": "fk_%(table_name)s_%(column_0_name)s_%(referred_table_name)s",
+    "pk": "pk_%(table_name)s"
+}
+metadata = MetaData(naming_convention=convention)
+Base = declarative_base(bind=engine, metadata=metadata)
 
 
 class User(Base):
@@ -86,4 +94,6 @@ class ActiveUser(Base):
         return f'<ActiveUser(name="{self.name}")>'
 
 
-Base.metadata.create_all()
+def init_db():
+    '''Initialize the database.'''
+    Base.metadata.create_all()

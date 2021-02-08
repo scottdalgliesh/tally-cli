@@ -5,6 +5,8 @@ import click
 from . import categ as _categ
 from . import parse as _parse
 from . import users
+from .config import DB_URL
+from .models import init_db
 from .review import TransData
 from .utils import handle_db_session, require_active_user
 
@@ -12,7 +14,10 @@ from .utils import handle_db_session, require_active_user
 @click.group()
 def cli():
     """Parse, categorize and summarize expense data from RBC credit card statements."""
-    pass
+    if not DB_URL.exists():
+        print('First time setup: initializing database...', end='')
+        init_db()
+        print('done')
 
 
 @cli.group()
@@ -91,6 +96,8 @@ def categ():
 
 
 @categ.command(name='list')
+@require_active_user
+@handle_db_session
 def list_categs():
     """List all categories for the active user."""
     categ_names = _categ.get_categs()
@@ -112,6 +119,7 @@ def list_categs():
 @click.argument('categ_names', nargs=-1)
 @click.option('-h', '--hidden', is_flag=True,
               help='Hide category in summary outputs.')
+@require_active_user
 @handle_db_session
 def add_categ(categ_names: Tuple[str], hidden: bool = False):
     """Add one or more categories."""
@@ -123,6 +131,7 @@ def add_categ(categ_names: Tuple[str], hidden: bool = False):
 @categ.command('update')
 @click.argument('old_categ_name')
 @click.argument('new_categ_name')
+@require_active_user
 @handle_db_session
 def update_categ(old_categ_name: str, new_categ_name: str):
     """Update a category's name."""
@@ -132,6 +141,7 @@ def update_categ(old_categ_name: str, new_categ_name: str):
 
 @categ.command(name='show')
 @click.argument('categ_names', nargs=-1)
+@require_active_user
 @handle_db_session
 def show_categ(categ_names: Tuple[str]):
     """Enable display of one or more categories in summary outputs."""
@@ -142,6 +152,7 @@ def show_categ(categ_names: Tuple[str]):
 
 @categ.command(name='hide')
 @click.argument('categ_names', nargs=-1)
+@require_active_user
 @handle_db_session
 def hide_categ(categ_names: Tuple[str]):
     """Disable display of one or more categories in summary outputs."""
@@ -154,6 +165,7 @@ def hide_categ(categ_names: Tuple[str]):
 @click.argument('categ_names', nargs=-1)
 @click.confirmation_option(
     prompt='Are you sure you want to delete the specified category(ies)?')
+@require_active_user
 @handle_db_session
 def delete_categ(categ_names: Tuple[str]):
     """Delete one or more categories."""

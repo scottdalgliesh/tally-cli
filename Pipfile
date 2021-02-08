@@ -19,6 +19,7 @@ sqlalchemy-stubs = "*"
 pylint = "*"
 pytest = "*"
 pytest-cov = "*"
+alembic = "*"
 
 [requires]
 python_version = "3.8"
